@@ -4,6 +4,7 @@ import sys
 import argparse
 from os.path import normpath
 from pathlib import Path
+import subprocess
 
 def queryYesNo(question, default=None):
   """
@@ -40,7 +41,7 @@ if __name__ == '__main__':
   parser = argparse.ArgumentParser()
   parser.prog = 'seccin';
   parser.formatter_class=argparse.RawDescriptionHelpFormatter
-  parser.description = 'seccin - Secret in Coffin\n\r  Tool to encrypt passwords and other secret information for different services.';
+  parser.description = 'seccin - Secret in Coffin\n  Tool to encrypt passwords and other secret information for different services.';
   parser.add_argument('path', nargs='?', default=Path.cwd().joinpath('coffin'), type=str, help='path to the crypted coffin')
   parser.add_argument('--init', '-i', action='store_true', help='create new crypted coffin')
   args = parser.parse_args()
@@ -51,7 +52,20 @@ if __name__ == '__main__':
   print(coffin)
   print(type(coffin))
   print(init)
+
+  # check encfs version
+  try:
+    encfs = subprocess.run(['encfs', '--version'], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+  except FileNotFoundError:
+    # no encfs
+    sys.stderr.write('ENCFS is not installed. Please install it first.\n')
+    sys.exit(1)
+  if encfs.returncode:
+    # no encfs
+    sys.stderr.write('ENCFS is not installed. Please install it first.\n')
+    sys.exit(1)
   
+
   if init:
     
     # check that coffin exists
