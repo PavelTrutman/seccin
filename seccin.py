@@ -45,8 +45,11 @@ if __name__ == '__main__':
   parser.add_argument('path', nargs='?', default=Path.cwd().joinpath('coffin'), type=str, help='path to the crypted coffin')
   parser.add_argument('--init', '-i', action='store_true', help='create new crypted coffin')
   args = parser.parse_args()
-  
-  coffin = Path(normpath(str(args.path))) #libpath workaround
+
+  if Path(args.path).is_absolute():
+    coffin = Path(normpath(str(args.path))) #libpath workaround
+  else:
+    coffin = Path(normpath(str(Path.cwd().joinpath(args.path)))) #libpath workaround
   init = args.init
   
   print(coffin)
