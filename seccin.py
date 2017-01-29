@@ -96,8 +96,12 @@ if __name__ == '__main__':
     print(cryptedDir.name)
     print(visibleDir.name)
     encfs = subprocess.Popen(['encfs', '-i 1', '-f', '-S', cryptedDir.name, visibleDir.name], stdin=subprocess.PIPE, stdout=subprocess.DEVNULL)
-    encfs.communicate(b'x\n1\n256\n1024\n3\ny\ny\ny\ny\n8\ny\n' + password.encode('utf-8') + b'\n', timeout=5)
+    encfs.stdin.write(b'x\n1\n256\n1024\n3\ny\ny\ny\ny\n8\ny\n' + password.encode('utf-8') + b'\n')
+    encfs.stdin.flush()
 
     input()
+
+    encfs.terminate()
+    encfs.wait()
     cryptedDir.cleanup()
     visibleDir.cleanup()
