@@ -35,29 +35,30 @@ def queryYesNo(question, default=None):
     elif choice in valid:
       return valid[choice]
 
-# argument parsing
-parser = argparse.ArgumentParser()
-parser.prog = 'seccin';
-parser.formatter_class=argparse.RawDescriptionHelpFormatter
-parser.description = 'seccin - Secret in Coffin\n\r  Tool to encrypt passwords and other secret information for different services.';
-parser.add_argument('path', nargs='?', default=Path.cwd().joinpath('coffin'), type=str, help='path to the crypted coffin')
-parser.add_argument('--init', '-i', action='store_true', help='create new crypted coffin')
-args = parser.parse_args()
-
-coffin = Path(normpath(str(args.path)))
-init = args.init
-
-print(coffin)
-print(type(coffin))
-print(init)
-
-if init:
+if __name__ == '__main__':
+  # argument parsing
+  parser = argparse.ArgumentParser()
+  parser.prog = 'seccin';
+  parser.formatter_class=argparse.RawDescriptionHelpFormatter
+  parser.description = 'seccin - Secret in Coffin\n\r  Tool to encrypt passwords and other secret information for different services.';
+  parser.add_argument('path', nargs='?', default=Path.cwd().joinpath('coffin'), type=str, help='path to the crypted coffin')
+  parser.add_argument('--init', '-i', action='store_true', help='create new crypted coffin')
+  args = parser.parse_args()
   
-  # check that coffin exists
-  if coffin.exists():
-    if not queryYesNo('The coffin at ' + str(coffin) + ' already exists. Do you want to overwrite it?', 'no'):
-      # not overwriting, exiting
-      print('exit')
+  coffin = Path(normpath(str(args.path))) #libpath workaround
+  init = args.init
   
+  print(coffin)
+  print(type(coffin))
+  print(init)
   
-
+  if init:
+    
+    # check that coffin exists
+    if coffin.exists():
+      if not queryYesNo('The coffin at ' + str(coffin) + ' already exists. Do you want to overwrite it?', 'no'):
+        # not overwriting, exiting
+        sys.exit(1)
+    
+    
+  
