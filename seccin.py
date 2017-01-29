@@ -5,6 +5,8 @@ import argparse
 from os.path import normpath
 from pathlib import Path
 import subprocess
+import tempfile
+import getpass
 
 def queryYesNo(question, default=None):
   """
@@ -76,6 +78,26 @@ if __name__ == '__main__':
       if not queryYesNo('The coffin at ' + str(coffin) + ' already exists. Do you want to overwrite it?', 'no'):
         # not overwriting, exiting
         sys.exit(1)
+
+    # select password
     
-    
-  
+    while True:
+      pass1 = getpass.getpass('Choose password: ')
+      pass2 = getpass.getpass('Retype password: ')
+      if pass1 == pass2:
+        password = pass1
+        break
+      else:
+        print('Passwords do not match.')
+
+    # create temp dirs for encfs
+    cryptedDir = tempfile.TemporaryDirectory()
+    visibleDir = tempfile.TemporaryDirectory()
+    print(cryptedDir.name)
+    print(visibleDir.name)
+    encfs = subprocess.Popen(['encfs', '-i 1', '-f', '-S', cryptedDir.name, visibleDir.name], stdin=subprocess.PIPE, stdout=subprocess.DEVNULL)
+    encfs.communicate(b'x\n1\n256\n1024\n3\ny\ny\ny\ny\n8\ny\n' + password.encode('utf-8') + b'\n', timeout=5)
+
+    input()
+    cryptedDir.cleanup()
+    visibleDir.cleanup()
