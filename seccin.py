@@ -13,7 +13,7 @@ import zipfile
 
 def queryYesNo(question, default=None):
   """
-  Ask a yes/no question via raw_input() and return their answer.
+  Asks a yes/no question via raw_input() and return their answer.
 
   Args:
     question (str): a string that is presented to the user
@@ -43,12 +43,13 @@ def queryYesNo(question, default=None):
 
 def parseCommandLineArguments():
   """
-  Parse command line arguments.
+  Parses command line arguments.
 
   Args:
     namespace object: parsed arguments
+
   Returns:
-    
+    None
   """
 
   parser = argparse.ArgumentParser(add_help=False)
@@ -67,6 +68,117 @@ def parseCommandLineArguments():
 
   return parser.parse_args()
 
+def initCoffin(coffin):
+  """
+  Initializes the coffin.
+
+  Args:
+    coffin (str): path to the coffin
+
+  Returns:
+    None
+  """
+
+  # check that coffin exists
+  if coffin.exists():
+    if not queryYesNo('The coffin at ' + str(coffin) + ' already exists. Do you want to overwrite it?', 'no'):
+      # not overwriting, exiting
+      sys.exit(1)
+
+  # select password
+  
+  while True:
+    pass1 = getpass.getpass('Choose password: ')
+    pass2 = getpass.getpass('Retype password: ')
+    if pass1 == pass2:
+      password = pass1
+      break
+    else:
+      print('Passwords do not match.')
+
+  # create temp dirs for encfs
+  cryptedDir = tempfile.TemporaryDirectory()
+  visibleDir = tempfile.TemporaryDirectory()
+  encfs = subprocess.Popen(['encfs', '-i 1', '-f', '-S', cryptedDir.name, visibleDir.name], stdin=subprocess.PIPE, stdout=subprocess.DEVNULL)
+  encfs.stdin.write(b'x\n1\n256\n1024\n3\ny\ny\ny\ny\n8\ny\n' + password.encode('utf-8') + b'\n')
+  encfs.stdin.flush()
+  # wait until mounts
+  while not Path(visibleDir.name).joinpath('.encfs6.xml').exists():
+    time.sleep(0.1)
+
+  # create db
+  dbPath = Path(visibleDir.name).joinpath('db')
+  dbConn = sqlite3.connect(str(dbPath))
+  db = dbConn.cursor()
+  db.execute('PRAGMA foreign_keys = ON')
+  db.execute('CREATE TABLE services(id INTEGER PRIMARY KEY autoincrement, name TEXT, data TEXT)')
+
+  # clean up
+  dbConn.commit()
+  dbConn.close()
+  encfs.terminate()
+  encfs.wait()
+  visibleDir.cleanup()
+
+  # zip the files
+  coffinZip = zipfile.ZipFile(str(coffin), mode='w')
+  coffinZip.write(str(Path(cryptedDir.name).joinpath('db')), 'db')
+  coffinZip.write(str(Path(cryptedDir.name).joinpath('.encfs6.xml')), 'meta')
+
+  # clean up
+  coffinZip.close()
+  cryptedDir.cleanup()
+
+def openCoffin(coffin, service):
+  """
+  Opens and prints content related to the given service of the coffin.
+
+  Args:
+    coffin (str): path to the coffin
+    service (str): service to print
+
+  Returns:
+    None
+  """
+
+  # create temp dirs for encfs
+  cryptedDir = tempfile.TemporaryDirectory()
+  visibleDir = tempfile.TemporaryDirectory()
+
+  # unarchive
+  coffinZip = zipfile.ZipFile(str(coffin), mode='r')
+  coffinZip.extract('db', cryptedDir.name)
+  coffinZip.extract('meta', cryptedDir.name)
+
+  # clean up
+  coffinZip.close()
+
+  password = getpass.getpass('Type your password: ')
+  encfs = subprocess.Popen(['encfs', '-i 1', '-f', '-S', cryptedDir.name, visibleDir.name], stdin=subprocess.PIPE, stdout=subprocess.DEVNULL, env={'ENCFS6_CONFIG': str(Path(cryptedDir.name).joinpath('meta'))})
+  encfs.stdin.write(password.encode('utf-8') + b'\n')
+  encfs.stdin.flush()
+  # wait until mounts
+  while not Path(visibleDir.name).joinpath('db').exists():
+    time.sleep(0.1)
+
+  # read db
+  dbPath = Path(visibleDir.name).joinpath('db')
+  dbConn = sqlite3.connect(str(dbPath))
+  db = dbConn.cursor()
+  db.execute('PRAGMA foreign_keys = ON')
+  db.execute('SELECT * FROM services WHERE name=?', (service, ))
+  print(db.fetchone())
+
+  # clean up
+  dbConn.commit()
+  dbConn.close()
+  encfs.terminate()
+  encfs.wait()
+
+  # clean up
+  cryptedDir.cleanup()
+  visibleDir.cleanup()
+
 
 if __name__ == '__main__':
 
@@ -76,9 +188,6 @@ if __name__ == '__main__':
     coffin = Path(normpath(str(args.path))) #libpath workaround
   else:
     coffin = Path(normpath(str(Path.cwd().joinpath(args.path)))) #libpath workaround
-  print(type(args))
-  print(coffin)
-  print(type(coffin))
 
   # check encfs version
   try:
@@ -92,55 +201,24 @@ if __name__ == '__main__':
     sys.stderr.write('ENCFS is not installed. Please install it first.\n')
     sys.exit(1)
   
-
+  # init coffin
   if args.init:
-    
-    # check that coffin exists
-    if coffin.exists():
-      if not queryYesNo('The coffin at ' + str(coffin) + ' already exists. Do you want to overwrite it?', 'no'):
-        # not overwriting, exiting
+    initCoffin(coffin)
+
+  # open coffin
+  elif args.open:
+    # check if coffin exists, if not ask user and create it
+    if not coffin.exists():
+      if queryYesNo('The coffin at ' + str(coffin) + ' does not exist. Do you want to create it?', 'yes'):
+        initCoffin(coffin)
+      else:
+        # not creating, exiting
         sys.exit(1)
 
-    # select password
-    
-    while True:
-      pass1 = getpass.getpass('Choose password: ')
-      pass2 = getpass.getpass('Retype password: ')
-      if pass1 == pass2:
-        password = pass1
-        break
-      else:
-        print('Passwords do not match.')
+    # check service
+    if args.service == None:
+      sys.stderr.write('Service name not specified.\n')
+      sys.exit(1)
 
-    # create temp dirs for encfs
-    cryptedDir = tempfile.TemporaryDirectory()
-    visibleDir = tempfile.TemporaryDirectory()
-    print(cryptedDir.name)
-    print(visibleDir.name)
-    encfs = subprocess.Popen(['encfs', '-i 1', '-f', '-S', cryptedDir.name, visibleDir.name], stdin=subprocess.PIPE, stdout=subprocess.DEVNULL)
-    encfs.stdin.write(b'x\n1\n256\n1024\n3\ny\ny\ny\ny\n8\ny\n' + password.encode('utf-8') + b'\n')
-    encfs.stdin.flush()
-    # wait until mounts
-    while not Path(visibleDir.name).joinpath('.encfs6.xml').exists():
-      time.sleep(0.1)
-
-    # create db
-    dbPath = Path(visibleDir.name).joinpath('db')
-    dbConn = sqlite3.connect(str(dbPath))
-    db = dbConn.cursor()
-    db.execute('PRAGMA foreign_keys = ON')
-    db.execute('CREATE TABLE services(id INTEGER PRIMARY KEY autoincrement, name TEXT, data TEXT)')
-
-    # clean up
-    dbConn.close()
-    encfs.terminate()
-    encfs.wait()
-    visibleDir.cleanup()
-
-    # zip the files
-    coffinZip = zipfile.ZipFile(str(coffin), mode='w')
-    coffinZip.write(str(Path(cryptedDir.name).joinpath('db')), 'db')
-    coffinZip.write(str(Path(cryptedDir.name).joinpath('.encfs6.xml')), 'meta')
-
-    coffinZip.close()
-    cryptedDir.cleanup()
+    # open existing coffin
+    openCoffin(coffin, args.service)
