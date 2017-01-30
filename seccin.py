@@ -11,6 +11,8 @@ import sqlite3
 import time
 import zipfile
 import readline
+import json
+
 
 def queryYesNo(question, default=None):
   """
@@ -190,7 +192,7 @@ def openCoffin(coffin, service):
   if data == None:
     print('No data for this service.')
   else:
-    print(data[2])
+    print(json.dumps(json.loads(data[2]), indent=2))
 
   # clean up
   dbConn.commit()
@@ -243,15 +245,18 @@ def editCoffin(coffin, service):
   if oldData == None:
     print('No data for this service. New service will be created.')
   else:
-    print(oldData[2])
+    print(json.dumps(json.loads(oldData[2]), indent=2))
+
 
   # insert new data
   if oldData == None:
     newData = input('Input string: ')
-    db.execute('INSERT INTO services(name, data) values(?, ?)', (service, newData))
+    newDataJson = json.dumps(json.loads(newData))
+    db.execute('INSERT INTO services(name, data) values(?, ?)', (service, newDataJson))
   else:
-    newData = inputSuggest('Input string: ', prefill=oldData[2])
-    db.execute('UPDATE services SET data=? WHERE id=?', (newData, oldData[0]))
+    newData = inputSuggest('Input string: ', prefill=json.dumps(json.loads(oldData[2])))
+    newDataJson = json.dumps(json.loads(newData))
+    db.execute('UPDATE services SET data=? WHERE id=?', (newDataJson, oldData[0]))
 
   # clean up
   dbConn.commit()
