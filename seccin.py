@@ -167,11 +167,80 @@ def openCoffin(coffin, service):
   db = dbConn.cursor()
   db.execute('PRAGMA foreign_keys = ON')
   db.execute('SELECT * FROM services WHERE name=?', (service, ))
-  print(db.fetchone())
+  data = db.fetchone()
+  if data == None:
+    print('No data for this service.')
+  else:
+    print(data[2])
 
   # clean up
   dbConn.commit()
   dbConn.close()
+  encfs.terminate()
+  encfs.wait()
+
+  # clean up
+  cryptedDir.cleanup()
+  visibleDir.cleanup()
+
+def editCoffin(coffin, service):
+  """
+  Opens and allows user to edit content related to the given service of the coffin.
+
+  Args:
+    coffin (str): path to the coffin
+    service (str): service to print
+
+  Returns:
+    None
+
+  """
+
+  # create temp dirs for encfs
+  cryptedDir = tempfile.TemporaryDirectory()
+  visibleDir = tempfile.TemporaryDirectory()
+
+  # unarchive
+  coffinZip = zipfile.ZipFile(str(coffin), mode='r')
+  coffinZip.extract('db', cryptedDir.name)
+  coffinZip.extract('meta', cryptedDir.name)
+  coffinZip.close()
+
+  password = getpass.getpass('Type your password: ')
+  encfs = subprocess.Popen(['encfs', '-i 1', '-f', '-S', cryptedDir.name, visibleDir.name], stdin=subprocess.PIPE, stdout=subprocess.DEVNULL, env={'ENCFS6_CONFIG': str(Path(cryptedDir.name).joinpath('meta'))})
+  encfs.stdin.write(password.encode('utf-8') + b'\n')
+  encfs.stdin.flush()
+  # wait until mounts
+  while not Path(visibleDir.name).joinpath('db').exists():
+    time.sleep(0.1)
+
+  # read db
+  dbPath = Path(visibleDir.name).joinpath('db')
+  dbConn = sqlite3.connect(str(dbPath))
+  db = dbConn.cursor()
+  db.execute('PRAGMA foreign_keys = ON')
+  db.execute('SELECT * FROM services WHERE name=?', (service, ))
+  oldData = db.fetchone()
+  if oldData == None:
+    print('No data for this service. New service will be created.')
+  else:
+    print(oldData[2])
+
+  newData = input('Input string: ')
+  if oldData == None:
+    db.execute('INSERT INTO services(name, data) values(?, ?)', (service, newData))
+  else:
+    db.execute('UPDATE services SET data=? WHERE id=?', (newData, oldData[0]))
+
+  # clean up
+  dbConn.commit()
+  dbConn.close()
+
+  # save coffin
+  coffinZip = zipfile.ZipFile(str(coffin), mode='w')
+  coffinZip.write(str(Path(cryptedDir.name).joinpath('db')), 'db')
+  coffinZip.write(str(Path(cryptedDir.name).joinpath('meta')), 'meta')
+  coffinZip.close()
   encfs.terminate()
   encfs.wait()
 
@@ -206,7 +275,7 @@ if __name__ == '__main__':
     initCoffin(coffin)
 
   # open coffin
-  elif args.open:
+  elif args.open or args.edit:
     # check if coffin exists, if not ask user and create it
     if not coffin.exists():
       if queryYesNo('The coffin at ' + str(coffin) + ' does not exist. Do you want to create it?', 'yes'):
@@ -220,5 +289,10 @@ if __name__ == '__main__':
       sys.stderr.write('Service name not specified.\n')
       sys.exit(1)
 
-    # open existing coffin
-    openCoffin(coffin, args.service)
+    if args.open:
+      # open existing coffin
+      openCoffin(coffin, args.service)
+
+    elif args.edit:
+      # edit existing coffin
+      editCoffin(coffin, args.service)
