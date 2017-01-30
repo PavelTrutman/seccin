@@ -9,6 +9,7 @@ import tempfile
 import getpass
 import sqlite3
 import time
+import zipfile
 
 def queryYesNo(question, default=None):
   """
@@ -117,5 +118,10 @@ if __name__ == '__main__':
     encfs.wait()
     visibleDir.cleanup()
 
-    input()
+    # zip the files
+    coffinZip = zipfile.ZipFile(str(coffin), mode='w')
+    coffinZip.write(str(Path(cryptedDir.name).joinpath('db')), 'db')
+    coffinZip.write(str(Path(cryptedDir.name).joinpath('.encfs6.xml')), 'meta')
+
+    coffinZip.close()
     cryptedDir.cleanup()
