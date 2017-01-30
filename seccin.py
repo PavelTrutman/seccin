@@ -179,8 +179,11 @@ def openCoffin(coffin, service):
   encfs.stdin.write(password.encode('utf-8') + b'\n')
   encfs.stdin.flush()
   # wait until mounts
-  while not Path(visibleDir.name).joinpath('db').exists():
+  while (not Path(visibleDir.name).joinpath('db').exists()) and (encfs.poll() == None):
     time.sleep(0.1)
+  if encfs.poll() != None:
+    sys.stderr.write('Wrong password.\n')
+    sys.exit(1)
 
   # read db
   dbPath = Path(visibleDir.name).joinpath('db')
@@ -232,8 +235,11 @@ def editCoffin(coffin, service):
   encfs.stdin.write(password.encode('utf-8') + b'\n')
   encfs.stdin.flush()
   # wait until mounts
-  while not Path(visibleDir.name).joinpath('db').exists():
+  while (not Path(visibleDir.name).joinpath('db').exists()) and (encfs.poll() == None):
     time.sleep(0.1)
+  if encfs.poll() != None:
+    sys.stderr.write('Wrong password.\n')
+    sys.exit(1)
 
   # read db
   dbPath = Path(visibleDir.name).joinpath('db')
