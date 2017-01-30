@@ -10,6 +10,7 @@ import getpass
 import sqlite3
 import time
 import zipfile
+import readline
 
 def queryYesNo(question, default=None):
   """
@@ -40,6 +41,24 @@ def queryYesNo(question, default=None):
       return valid[default]
     elif choice in valid:
       return valid[choice]
+
+def inputSuggest(prompt, prefill=''):
+   """
+   Asks user for input with prefilled text.
+
+   Args:
+     promp(str): text before input
+     prefill (str): prefilled text in the input
+
+   Returns:
+     str: typed text
+   """
+
+   readline.set_startup_hook(lambda: readline.insert_text(prefill))
+   try:
+      return input(prompt)
+   finally:
+      readline.set_startup_hook()
 
 def parseCommandLineArguments():
   """
@@ -226,10 +245,12 @@ def editCoffin(coffin, service):
   else:
     print(oldData[2])
 
-  newData = input('Input string: ')
+  # insert new data
   if oldData == None:
+    newData = input('Input string: ')
     db.execute('INSERT INTO services(name, data) values(?, ?)', (service, newData))
   else:
+    newData = inputSuggest('Input string: ', prefill=oldData[2])
     db.execute('UPDATE services SET data=? WHERE id=?', (newData, oldData[0]))
 
   # clean up
