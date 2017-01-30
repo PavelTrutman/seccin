@@ -7,6 +7,8 @@ from pathlib import Path
 import subprocess
 import tempfile
 import getpass
+import sqlite3
+import time
 
 def queryYesNo(question, default=None):
   """
@@ -98,10 +100,22 @@ if __name__ == '__main__':
     encfs = subprocess.Popen(['encfs', '-i 1', '-f', '-S', cryptedDir.name, visibleDir.name], stdin=subprocess.PIPE, stdout=subprocess.DEVNULL)
     encfs.stdin.write(b'x\n1\n256\n1024\n3\ny\ny\ny\ny\n8\ny\n' + password.encode('utf-8') + b'\n')
     encfs.stdin.flush()
+    # wait until mounts
+    while not Path(visibleDir.name).joinpath('.encfs6.xml').exists():
+      time.sleep(0.1)
 
-    input()
+    # create db
+    dbPath = Path(visibleDir.name).joinpath('db')
+    dbConn = sqlite3.connect(str(dbPath))
+    db = dbConn.cursor()
+    db.execute('PRAGMA foreign_keys = ON')
+    db.execute('CREATE TABLE services(id INTEGER PRIMARY KEY autoincrement, name TEXT, data TEXT)')
 
+    # clean up
+    dbConn.close()
     encfs.terminate()
     encfs.wait()
-    cryptedDir.cleanup()
     visibleDir.cleanup()
+
+    input()
+    cryptedDir.cleanup()
