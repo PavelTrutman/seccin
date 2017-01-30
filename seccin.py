@@ -43,23 +43,26 @@ def queryYesNo(question, default=None):
 
 if __name__ == '__main__':
   # argument parsing
-  parser = argparse.ArgumentParser()
+  parser = argparse.ArgumentParser(add_help=False)
   parser.prog = 'seccin';
   parser.formatter_class=argparse.RawDescriptionHelpFormatter
   parser.description = 'seccin - Secret in Coffin\n  Tool to encrypt passwords and other secret information for different services.';
+  parser.add_argument('--help', '-h', action='help', help='service from coffin to see or edit')
+  parser.add_argument('service', nargs='?', type=str, help='service from coffin to see or edit')
   parser.add_argument('path', nargs='?', default=Path.cwd().joinpath('coffin'), type=str, help='path to the crypted coffin')
-  parser.add_argument('--init', '-i', action='store_true', help='create new crypted coffin')
+  group = parser.add_mutually_exclusive_group()
+  group.add_argument('--init', '-i', action='store_true', help='create a new coffin')
+  group.add_argument('--open', '-o', action='store_true', help='open and see content of the coffin')
+  group.add_argument('--edit', '-e', action='store_true', help='edit the content of the coffin')
   args = parser.parse_args()
 
   if Path(args.path).is_absolute():
     coffin = Path(normpath(str(args.path))) #libpath workaround
   else:
     coffin = Path(normpath(str(Path.cwd().joinpath(args.path)))) #libpath workaround
-  init = args.init
   
   print(coffin)
   print(type(coffin))
-  print(init)
 
   # check encfs version
   try:
@@ -74,7 +77,7 @@ if __name__ == '__main__':
     sys.exit(1)
   
 
-  if init:
+  if args.init:
     
     # check that coffin exists
     if coffin.exists():
