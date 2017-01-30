@@ -41,26 +41,42 @@ def queryYesNo(question, default=None):
     elif choice in valid:
       return valid[choice]
 
-if __name__ == '__main__':
-  # argument parsing
+def parseCommandLineArguments():
+  """
+  Parse command line arguments.
+
+  Args:
+    namespace object: parsed arguments
+  Returns:
+    
+  """
+
   parser = argparse.ArgumentParser(add_help=False)
   parser.prog = 'seccin';
   parser.formatter_class=argparse.RawDescriptionHelpFormatter
   parser.description = 'seccin - Secret in Coffin\n  Tool to encrypt passwords and other secret information for different services.';
+
   parser.add_argument('--help', '-h', action='help', help='service from coffin to see or edit')
   parser.add_argument('service', nargs='?', type=str, help='service from coffin to see or edit')
   parser.add_argument('path', nargs='?', default=Path.cwd().joinpath('coffin'), type=str, help='path to the crypted coffin')
+
   group = parser.add_mutually_exclusive_group()
   group.add_argument('--init', '-i', action='store_true', help='create a new coffin')
   group.add_argument('--open', '-o', action='store_true', help='open and see content of the coffin')
   group.add_argument('--edit', '-e', action='store_true', help='edit the content of the coffin')
-  args = parser.parse_args()
+
+  return parser.parse_args()
+
+
+if __name__ == '__main__':
+
+  args = parseCommandLineArguments()
 
   if Path(args.path).is_absolute():
     coffin = Path(normpath(str(args.path))) #libpath workaround
   else:
     coffin = Path(normpath(str(Path.cwd().joinpath(args.path)))) #libpath workaround
-  
+  print(type(args))
   print(coffin)
   print(type(coffin))
 
